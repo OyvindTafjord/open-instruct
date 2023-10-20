@@ -223,6 +223,17 @@ def parse_args():
         action='store_true',
         help='Use 8bit optimizer from bitsandbytes. Not compatible with deepspeed (use deepspeed config instead).',
     )
+    parser.add_argument(
+        "--chat_format",
+        type=str,
+        default=None,
+        help="Format for encoding chat messages ('default' or 'llama2-chat')",
+    )
+    parser.add_argument(
+        "--no_shuffle_train",
+        action='store_true',
+        help="Do not shuffle training instance",
+    )
     args = parser.parse_args()
 
     # Sanity checks
@@ -261,7 +272,26 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length):
     }
 
 
-def encode_with_messages_format(example, tokenizer, max_seq_length):
+# Llama-2 chat format, https://github.com/facebookresearch/llama/blob/main/llama/generation.py
+B_INST, E_INST = "[INST]", "[/INST]"
+B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+LLAMA2FORMAT = "llama2-chat"
+
+def _llama_preprocess_messages(messages):
+    res = messages
+    if messages[0]["role"] == "system":
+        res = [{"role": messages[1]["role"],
+                     "content": B_SYS + messages[0]["content"] + E_SYS + messages[1]["content"],
+                     }] + messages[2:]
+    assert all([msg["role"] == "user" for msg in res[::2]]) and all(
+        [msg["role"] == "assistant" for msg in res[1::2]]
+    ), (
+        "model only supports 'system', 'user' and 'assistant' roles, "
+        "starting with 'system', then 'user' and alternating (u/a/u/a/u...)"
+    )
+    return res
+
+def encode_with_messages_format(example, tokenizer, max_seq_length, chat_format=None):
     '''
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -269,18 +299,30 @@ def encode_with_messages_format(example, tokenizer, max_seq_length):
     messages = example['messages']
     if len(messages) == 0:
         raise ValueError('messages field is empty.')
+    chat_format = chat_format or "default"
+    if chat_format == LLAMA2FORMAT:
+        messages = _llama_preprocess_messages(messages)
     
     def _concat_messages(messages):
         message_text = ""
-        for message in messages:
-            if message["role"] == "system":
-                message_text += "<|system|>\n" + message["content"].strip() + "\n"
-            elif message["role"] == "user":
-                message_text += "<|user|>\n" + message["content"].strip() + "\n"
-            elif message["role"] == "assistant":
-                message_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
-            else:
-                raise ValueError("Invalid role: {}".format(message["role"]))
+        if chat_format == LLAMA2FORMAT:
+            for message in messages:
+                if message["role"] == "user":
+                    message_text += f"{B_INST} {(message['content']).strip()} {E_INST}"
+                elif message["role"] == "assistant":
+                    message_text += f" {(message['content']).strip()} " + tokenizer.eos_token
+                else:
+                    raise ValueError("Invalid role: {}".format(message["role"]))
+        else:
+            for message in messages:
+                if message["role"] == "system":
+                    message_text += "<|system|>\n" + message["content"].strip() + "\n"
+                elif message["role"] == "user":
+                    message_text += "<|user|>\n" + message["content"].strip() + "\n"
+                elif message["role"] == "assistant":
+                    message_text += "<|assistant|>\n" + message["content"].strip() + tokenizer.eos_token + "\n"
+                else:
+                    raise ValueError("Invalid role: {}".format(message["role"]))
         return message_text
         
     example_text = _concat_messages(messages).strip()
@@ -297,7 +339,8 @@ def encode_with_messages_format(example, tokenizer, max_seq_length):
                 message_start_idx = tokenizer(
                     _concat_messages(messages[:message_idx]), return_tensors='pt', max_length=max_seq_length, truncation=True
                 ).input_ids.shape[1]
-            if message_idx < len(messages) - 1 and messages[message_idx+1]["role"] == "assistant":
+            if message_idx < len(messages) - 1 and messages[message_idx+1]["role"] == "assistant" \
+                    and chat_format != LLAMA2FORMAT:
                 # here we also ignore the role of the assistant
                 messages_so_far = _concat_messages(messages[:message_idx+1]) + "<|assistant|>\n"
             else:
@@ -498,6 +541,7 @@ def main():
             encode_with_messages_format,
             tokenizer=tokenizer,
             max_seq_length=args.max_seq_length,
+            chat_format=args.chat_format
         )
     else:
         raise ValueError("You need to have either 'prompt'&'completion' or 'messages' in your column names.")
@@ -523,7 +567,7 @@ def main():
     # DataLoaders creation:
     train_dataloader = DataLoader(
         train_dataset, 
-        shuffle=True, 
+        shuffle=not args.no_shuffle_train,
         collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding="longest"),
         batch_size=args.per_device_train_batch_size
     )
