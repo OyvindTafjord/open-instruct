@@ -140,7 +140,7 @@ if __name__ == "__main__":
                     raise ValueError("If `messages` is in the instance, `use_chat_format` should be True.")
                 assert all("role" in message and "content" in message for message in instance["messages"]), \
                     "Each message should have a `role` and a `content` field."
-                prompt = eval(args.chat_formatting_function)(instance["messages"], add_bos=False)
+                prompt = chat_formatting_function(instance["messages"], add_bos=False)
             elif "prompt" in instance:
                 if args.use_chat_format:
                     messages = [{"role": "user", "content": instance["prompt"]}]

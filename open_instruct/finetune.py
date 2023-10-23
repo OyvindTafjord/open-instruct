@@ -308,6 +308,8 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, chat_format=
         if chat_format == LLAMA2FORMAT:
             for message in messages:
                 if message["role"] == "user":
+                    if message_text != "":
+                        message_text += tokenizer.bos_token   # Add BOS before each turn
                     message_text += f"{B_INST} {(message['content']).strip()} {E_INST}"
                 elif message["role"] == "assistant":
                     message_text += f" {(message['content']).strip()} " + tokenizer.eos_token
