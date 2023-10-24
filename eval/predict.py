@@ -139,6 +139,7 @@ if __name__ == "__main__":
     if args.model_name_or_path is not None:
         prompts = []
         chat_formatting_function = dynamic_import_function(args.chat_formatting_function) if args.use_chat_format else None
+        num_return_sequences = 1
         for instance in instances:
             if "messages" in instance:
                 if not args.use_chat_format:
@@ -177,6 +178,7 @@ if __name__ == "__main__":
                 gptq_model=args.gptq,
                 use_fast_tokenizer=not args.use_slow_tokenizer,
             )
+            num_return_sequences = args.num_return_sequences
             outputs = generate_completions(
                 model=model,
                 tokenizer=tokenizer,
@@ -186,12 +188,15 @@ if __name__ == "__main__":
                 do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
-                num_return_sequences=args.num_return_sequences,
+                num_return_sequences=num_return_sequences,
             )
+
         with open(args.output_file, "w") as f:
-            for instance, output in zip(instances, outputs):
-                instance["output"] = output
-                f.write(json.dumps(instance) + "\n")
+            for idx, instance in enumerate(instances):
+                # Hacky code for supporting multiple return sequences
+                for output_idx in range(idx * num_return_sequences, (idx + 1) * num_return_sequences):
+                    instance["output"] = outputs[output_idx]
+                    f.write(json.dumps(instance) + "\n")
                 
     elif args.openai_engine is not None:
         query_openai_chat_model(
