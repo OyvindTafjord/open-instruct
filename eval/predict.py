@@ -110,6 +110,11 @@ def parse_args():
         type=float,
         default=1.0,
         help="top_p for sampling.")
+    parser.add_argument(
+        "--num_return_sequences",
+        type=int,
+        default=1,
+        help="number of sampled predictions")
     args = parser.parse_args()
 
     # model_name_or_path and openai_engine should be exclusive.
@@ -181,6 +186,7 @@ if __name__ == "__main__":
                 do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
+                num_return_sequences=args.num_return_sequences,
             )
         with open(args.output_file, "w") as f:
             for instance, output in zip(instances, outputs):
