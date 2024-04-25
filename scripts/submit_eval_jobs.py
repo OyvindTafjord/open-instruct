@@ -1,6 +1,7 @@
 import copy
 import subprocess
 import yaml
+import os
 import re
 import itertools
 from datetime import date
@@ -406,6 +407,7 @@ experiment_name = f"open_instruct_eval_{model_name}_{today}"
 d["description"] = experiment_name
 d["tasks"] = eval_task_specs
 fn = "beaker_configs/auto_created/{}.yaml".format(experiment_name)
+os.makedirs("beaker_configs/auto_created", exist_ok=True)
 file = open(fn, "w")
 yaml.dump(d, file, default_flow_style=True)
 file.close()
