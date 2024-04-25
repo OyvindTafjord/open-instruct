@@ -151,6 +151,7 @@ for experiment_group in experiment_groups:
             --max_num_examples 200 \
             --save_dir /output/ \
             --use_vllm \
+            --eval_batch_size 4 \
             --model_name_or_path /model \
             --tokenizer_name_or_path /model \
             --n_shot 8 \
@@ -164,6 +165,7 @@ for experiment_group in experiment_groups:
             --data_dir /data/gsm/ \
             --max_num_examples 200 \
             --save_dir /output/ \
+            --eval_batch_size 4 \
             --use_vllm \
             --model_name_or_path /model \
             --tokenizer_name_or_path /model \
