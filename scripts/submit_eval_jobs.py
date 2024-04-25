@@ -6,6 +6,17 @@ import itertools
 from datetime import date
 import argparse
 
+## Custom version of submit_eval_jobs.py for oe-eval jobs. E.g.,
+#python scripts/submit_eval_jobs.py \
+#    --workspace oyvindt-llm-apis \
+#    --beaker_image nathanl/open_instruct_olmo \
+#    --model_name olmo-70B-1T \
+#    --location /net/nfs.cirrascale/aristo/oyvindt/olmo-models/olmo-70b-1T-step160500-hf \
+#    --cluster ai2/s2-cirrascale-l40 ai2/s2-cirrascale ai2/aristo-cirrascale \
+#    --olmo \
+#    --priority normal \
+#    --experiments gsm_cot trutufulqa
+
 today = date.today().strftime("%m%d%Y")
 
 parser = argparse.ArgumentParser()
@@ -333,6 +344,9 @@ for experiment_group in experiment_groups:
         if "codex_eval" in experiment_group:
             # request 4x more GPUs
             task_spec['resources']['gpuCount'] = 4 * task_spec['resources']['gpuCount']
+        elif args.olmo:
+            # request 3x more GPUs
+            task_spec['resources']['gpuCount'] = 3 * task_spec['resources']['gpuCount']
         else:
             # request 2x more GPUs
             task_spec['resources']['gpuCount'] = 2 * task_spec['resources']['gpuCount']

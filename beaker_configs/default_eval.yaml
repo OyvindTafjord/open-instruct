@@ -1,6 +1,6 @@
 version: v2
 description: open-instruct-eval-default
-budget: ai2/oe-adapt
+budget: ai2/oe-eval
 tasks:
   - name: open-instruct-eval-default
     image:
@@ -33,7 +33,7 @@ tasks:
       - name: WANDB_DISABLED
         value: true
       - name: OPENAI_API_KEY
-        secret: openai_api_key
+        secret: OPENAI_API_KEY
     datasets:
       - mountPath: /data/
         source:
@@ -53,4 +53,4 @@ tasks:
     constraints:
       cluster: ai2/allennlp-cirrascale
     context:
-      priority: high
+      priority: normal
