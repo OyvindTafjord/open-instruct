@@ -173,7 +173,22 @@ for experiment_group in experiment_groups:
             --n_shot 8 \
             --use_chat_format \
             --chat_formatting_function eval.templates.create_prompt_with_tulu_chat_format
-        ''' 
+        '''
+    elif experiment_group == "gsm_cot_2newline":
+        task_spec['arguments'][0] = '''
+            PYTHONPATH="." python /net/nfs.cirrascale/aristo/oyvindt/code-overrides/run_gsm_eval_2xnewline.py \
+            --data_dir /data/gsm/ \
+            --max_num_examples 200 \
+            --save_dir /output/ \
+            --eval_batch_size 4 \
+            --use_vllm \
+            --load_in_8bit \
+            --model_name_or_path /model \
+            --tokenizer_name_or_path /model \
+            --n_shot 8 \
+            --use_chat_format \
+            --chat_formatting_function eval.templates.create_prompt_with_tulu_chat_format
+        '''
     elif experiment_group == "tydiqa_goldp_1shot":
         task_spec["arguments"][0] = '''
             python -m eval.tydiqa.run_eval \
@@ -249,6 +264,20 @@ for experiment_group in experiment_groups:
             --preset qa \
             --hf_truth_model_name_or_path allenai/truthfulqa-truth-judge-llama2-7B \
             --hf_info_model_name_or_path allenai/truthfulqa-info-judge-llama2-7B \
+            --eval_batch_size 20 \
+            --load_in_8bit \
+            --use_chat_format \
+            --chat_formatting_function eval.templates.create_prompt_with_tulu_chat_format
+        '''
+    elif experiment_group == "trutufulqa_mc":
+        task_spec['arguments'][0] = '''
+        python -m eval.truthfulqa.run_eval \
+            --data_dir /data/truthfulqa \
+            --save_dir /output/ \
+            --model_name_or_path /model \
+            --tokenizer_name_or_path /model \
+            --metrics mc \
+            --preset qa \
             --eval_batch_size 20 \
             --load_in_8bit \
             --use_chat_format \
@@ -348,8 +377,12 @@ for experiment_group in experiment_groups:
             # request 4x more GPUs
             task_spec['resources']['gpuCount'] = 4 * task_spec['resources']['gpuCount']
         elif args.olmo:
-            # request 3x more GPUs
-            task_spec['resources']['gpuCount'] = 3 * task_spec['resources']['gpuCount']
+            if "gsm_cot" in experiment_group:
+                # request 4x more GPUs
+                task_spec['resources']['gpuCount'] = 4 * task_spec['resources']['gpuCount']
+            else:
+                # request 3x more GPUs
+                task_spec['resources']['gpuCount'] = 3 * task_spec['resources']['gpuCount']
         else:
             # request 2x more GPUs
             task_spec['resources']['gpuCount'] = 2 * task_spec['resources']['gpuCount']
@@ -388,7 +421,7 @@ for experiment_group in experiment_groups:
         # no vllm for olmo yet
         if "--use_vllm" in task_spec['arguments'][0]:
             print(f"Removing --use_vllm for {model_info[0]}")
-            task_spec['arguments'] = [task_spec['arguments'][0].replace("--use_vllm", "")] 
+            task_spec['arguments'] = [task_spec['arguments'][0].replace("--use_vllm", "")]
 
 
     if any([x in model_info[0] for x in ["opt", "pythia", "falcon"]]):
